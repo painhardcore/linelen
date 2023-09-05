@@ -1,5 +1,9 @@
 # LineLen - Line Length Analyzer
 
+<p align="center">
+ <img src="https://github.com/painhardcore/linelen/assets/4718161/98e38e4b-732c-467e-b98f-95ddb5010784" alt="size-is-everything-neil-degrasse-tyson" width="400"/>
+</p>
+
 LineLen is a tool that analyzes text input to provide insights into line lengths. Understanding line sizes in logs is crucial: it helps in identifying anomalies, optimizing batch processes, fine-tuning buffers, and ensuring efficient data processing. Know your data; size does matter.
 
 ## Features
