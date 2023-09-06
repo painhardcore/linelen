@@ -28,6 +28,10 @@ Example:
 cat yourfile.txt | linelen -f output.csv
 ```
 
+## Why Input from Stdin?
+
+The tool reads from stdin because many large files, especially logs, are often compressed. By using stdin, you can decompress and pipe your data into the tool in one step, streamlining the analysis process. This approach offers flexibility as you can pipe any data source, transformed or filtered, into the tool.
+
 ## Installation
 
 ### Manually
