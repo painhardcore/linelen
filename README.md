@@ -8,8 +8,8 @@ LineLen is a tool that analyzes text input to provide insights into line lengths
 
 ## Features
 
-- Dynamic bucketing based on line lengths.
-- Periodic display of statistics.
+- Groups line lengths into 1,000-byte buckets.
+- Prints statistics every 10 seconds and once when input ends.
 - Calculate the 50th, 90th, 95th, and 99th percentile of line lengths.
 - Option to export results to a CSV file.
 - Uses T-Digest to efficiently compute percentiles without storing all data points in memory.
@@ -21,12 +21,22 @@ cat yourfile.txt | linelen
 ```
 **Options:**
 
-`-f` : Filename to write the output in CSV format. If not provided, will print to stdout.
+`-f` : Write bucket counts to a CSV file in addition to statistics on stdout.
 
 Example:
 ```
 cat yourfile.txt | linelen -f output.csv
 ```
+
+Lengths are measured in bytes, excluding LF or CRLF line endings. UTF-8
+characters can occupy more than one byte. Bucket ranges include the lower
+bound and exclude the upper bound, so a 1,000-byte line belongs to `1000-2000 bytes`.
+Percentiles are approximate byte lengths.
+
+Reports use plain text, including when stdout is redirected. Empty input reports
+zero lines without percentiles. Read and output errors are printed to stderr
+and cause a nonzero exit status. A read error prevents the final report and CSV
+export; periodic reports already printed describe only the input read so far.
 
 ## Why Input from Stdin?
 
@@ -46,24 +56,40 @@ git clone https://github.com/painhardcore/linelen.git
 2. Navigate to the directory and build:
 ```bash
 cd linelen
-go build -o linelen main.go
+go build -o linelen .
 ```
 
-3. Now, you can use the `linelen` command as shown in the Usage section.
+3. Run `./linelen`, or put the binary in a directory on your `PATH` to use `linelen`.
 
-### Using `go get`
+### Using `go install`
 
 You can directly install the tool to your `$GOPATH/bin` directory (make sure this directory is in your `PATH`) using:
 
 ```bash
-go get -u github.com/painhardcore/linelen
+go install github.com/painhardcore/linelen@latest
 ```
 
-## Known Issues
+## Limits
 
-- **Screen Clearing**: The screen-clearing mechanism might not work properly on all terminals, especially when using some SSH sessions or terminal multiplexers like `screen`. Unfortunately, there's nothing we can do about this behavior in such environments.
-  
-- **Hardcoded Settings**: A lot of settings are currently hardcoded. Feel free to adjust them in the code according to your requirements, or raise an issue to have them converted to configurable flags.
+- Input lines must fit in the 100 MiB scanner buffer, including space needed to
+  detect line endings. Longer lines stop analysis with an error. The buffer
+  starts at 64 KiB and grows as needed.
+- The refresh interval and bucket size are fixed.
+- CSV export replaces an existing file at the requested path.
+
+## Development
+
+Run the tests, including concurrent reporting checks:
+
+```bash
+go test -race ./...
+```
+
+Benchmark recording line lengths without input parsing:
+
+```bash
+go test -run '^$' -bench BenchmarkStatisticsAdd -benchmem
+```
 
 ## Contributing
 
