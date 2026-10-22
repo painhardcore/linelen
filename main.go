@@ -19,28 +19,16 @@ const (
 	maxLineSize     = 100 * 1024 * 1024
 )
 
-type Category struct {
-	name  string
-	start int
-	end   int
-	count int
-}
-
-func (cat *Category) inRange(val int) bool {
-	return val >= cat.start && val < cat.end
-}
-
 type statistics struct {
 	mu         sync.Mutex
-	categories []*Category
+	buckets    []int
 	totalLines int
 	td         *tdigest.TDigest
 }
 
 func newStatistics() *statistics {
 	return &statistics{
-		categories: []*Category{{"0-1000 chars", 0, 1000, 0}},
-		td:         tdigest.NewWithCompression(10000),
+		td: tdigest.NewWithCompression(10000),
 	}
 }
 
@@ -49,18 +37,11 @@ func (s *statistics) add(length int) {
 	defer s.mu.Unlock()
 	s.td.Add(float64(length), 1)
 	s.totalLines++
-	lastCategory := s.categories[len(s.categories)-1]
-	for length >= lastCategory.end {
-		newEnd := lastCategory.end + bucketSize
-		s.categories = append(s.categories, &Category{fmt.Sprintf("%d-%d chars", lastCategory.end, newEnd), lastCategory.end, newEnd, 0})
-		lastCategory = s.categories[len(s.categories)-1]
+	bucket := length / bucketSize
+	for len(s.buckets) <= bucket {
+		s.buckets = append(s.buckets, 0)
 	}
-	for _, cat := range s.categories {
-		if cat.inRange(length) {
-			cat.count++
-			break
-		}
-	}
+	s.buckets[bucket]++
 }
 
 func main() {
@@ -124,9 +105,9 @@ func (s *statistics) print(output io.Writer) error {
 	defer s.mu.Unlock()
 	w := bufio.NewWriter(output)
 	fmt.Fprintln(w, "Current statistics:")
-	for _, cat := range s.categories {
-		if cat.count > 0 {
-			fmt.Fprintf(w, "%s - %d\n", cat.name, cat.count)
+	for i, count := range s.buckets {
+		if count > 0 {
+			fmt.Fprintf(w, "%d-%d bytes - %d\n", i*bucketSize, (i+1)*bucketSize, count)
 		}
 	}
 	fmt.Fprintf(w, "\nTotal lines: %d\n", s.totalLines)
@@ -150,9 +131,9 @@ func (s *statistics) writeToCSV(filename string) (err error) {
 	defer func() { err = errors.Join(err, file.Close()) }()
 	w := bufio.NewWriter(file)
 	fmt.Fprintln(w, "Range,Count")
-	for _, cat := range s.categories {
-		if cat.count > 0 {
-			fmt.Fprintf(w, "%s,%d\n", cat.name, cat.count)
+	for i, count := range s.buckets {
+		if count > 0 {
+			fmt.Fprintf(w, "%d-%d bytes,%d\n", i*bucketSize, (i+1)*bucketSize, count)
 		}
 	}
 	return w.Flush()

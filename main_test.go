@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -114,8 +115,41 @@ func TestCSV(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "Range,Count\n0-1000 chars,2\n"; string(data) != want {
+	if want := "Range,Count\n0-1000 bytes,2\n"; string(data) != want {
 		t.Fatalf("CSV = %q, want %q", data, want)
+	}
+}
+
+func TestBucketBoundaries(t *testing.T) {
+	s := newStatistics()
+	for _, length := range []int{0, 999, 1000, 1999, 2000, 10000} {
+		s.add(length)
+	}
+	filename := filepath.Join(t.TempDir(), "buckets.csv")
+	if err := s.writeToCSV(filename); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "Range,Count\n0-1000 bytes,2\n1000-2000 bytes,2\n2000-3000 bytes,1\n10000-11000 bytes,1\n"
+	if string(data) != want {
+		t.Fatalf("CSV = %q, want %q", data, want)
+	}
+}
+
+func BenchmarkStatisticsAdd(b *testing.B) {
+	for _, length := range []int{100, 10000, 10 * 1024 * 1024} {
+		b.Run(strconv.Itoa(length), func(b *testing.B) {
+			s := newStatistics()
+			s.add(length)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				s.add(length)
+			}
+		})
 	}
 }
 
